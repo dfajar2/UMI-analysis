@@ -42,13 +42,13 @@ struct fastq_block
 
 int main (int argc, char *argv[]) 
 {
-  if (argc < 3)
+  if (argc < 2)
   {
     fprintf (stderr, "\nUsage: fastq_umi_clipper fastqfilename clip_length g_length trim_length\n\n") ;
     fprintf (stderr, "   fastqfilename: path to a fastq file\n") ;
     fprintf (stderr, "   clip_length: number of nucleotides to move from the start of the read and put in header 1\n") ;
     fprintf (stderr, "   g_length: number of nucleotides (Gs) to delete after the UMI\n") ;
-    fprintf (stderr, "   trim_length: number of chars to remove from the end of the header before appending the UMI\n") ;
+    //fprintf (stderr, "   trim_length: number of chars to remove from the end of the header before appending the UMI\n") ;
     fprintf (stderr, "\nWarning: not much arg checking is done so unexpected behavior may be encountered. For example if you enter a clip_length longer than the read length, or negative values. Output files will be overwritten without warning. \n\n");
     exit (-1);
   }
@@ -56,7 +56,7 @@ int main (int argc, char *argv[])
   char *fastq_file = argv[1];
   int clip_length = atoi(argv[2]);
   int g_length = atoi(argv[3]);
-  int trim_length = atoi(argv[4]);
+  //int trim_length = atoi(argv[4]);
 
   // a struct is not really needed but you might want to send it off to some function
   struct fastq_block block;
@@ -123,12 +123,32 @@ int main (int argc, char *argv[])
         //printf("%s\n", line->data);
                
         // You now have a four line block in the struct
-        
+    
+	//
+        // Find the first space in the header
+        char *space_ptr = strchr(block.header1->data, ' ' );
+	//
+	// If there is a space, truncate the header
+	if(space_ptr)
+	{
+           //Distance to the space from start of string   
+	   int offset = space_ptr - (char*)block.header1->data;
+	   int header1_length = block.header1->slen;
+	   int trim_length = header1_length - offset;
+	   bdelete (block.header1 , offset , trim_length);
+	}
+        //
+	//
+
+        //The old way: trim back the header before adding the UMI
+	//BUT not always a consistent number in the file... So try
+	//above and truncate header at the first space.
+	//
         // remove the index from the header1
-        int header1_length = block.header1->slen;
-        int trim_start = header1_length-trim_length;
-        
-        bdelete (block.header1 , trim_start , trim_length);
+        //int header1_length = block.header1->slen;
+        //int trim_start = header1_length-trim_length;
+        //
+        //bdelete (block.header1 , trim_start , trim_length);
                 
         // get the clipped UMI string off the sequence string
         bstring umi = bmidstr (block.sequence , 0 , clip_length);
