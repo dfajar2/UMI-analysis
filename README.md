@@ -124,6 +124,14 @@ Usage: fastq\_qual\_filter infile goodfile badfile logfile min\_ok offset length
 
    [1] Islam, S., Zeisel, A., Joost, S., La Manno, G., Zajac, P., Kasper, M., Lönnerberg, P., Linnarsson, S., 2014. Quantitative single-cell RNA-seq with unique molecular identifiers. Nat. Methods 11, 163–166. doi:10.1038/nmeth.2772
 
+---
+
+#### To be documented
+
+umi_proximitizer.pl
+umi_proximitizer_detail.pl
+
+
    [ncgr]: <http://www.ncgr.org>
    [moore]: <http://www.moore.org>
    [wpi]: <https://www.wpi.edu>

@@ -50,7 +50,7 @@ my $current_time = time;
 #
 # This groups key elements of the sam file at each position
 #
-while (<SAM>) 
+SAMLINE: while (<SAM>) 
 {
    $line_counter++;    
    
