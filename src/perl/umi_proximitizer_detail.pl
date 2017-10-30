@@ -49,15 +49,6 @@ while (<UMI>)
 }
 
 
-#while ( my ($umi,$spacing_hashref) = each %$spacing_data)
-#{
-#   print "$umi\n";
-#   while ( my ($spacing,$count) = each %$spacing_hashref )
-#   {
-#      print "   $spacing $count\n";
-#   }
-#}
-
 for my $umi (sort keys %$spacing_data)
 {
    print "$umi\n";

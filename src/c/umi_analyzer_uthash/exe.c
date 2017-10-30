@@ -20,9 +20,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "/home/cjb/build/uthash/include/uthash.h"
-#define UMI_WIDTH        10
-#define POSITION_STR_LEN 20
-#define LINE_BYTES       500000
+
+//
+// Don't forget to edit these to match your umi counts file
+//
+
+#define UMI_WIDTH        6
+#define POSITION_STR_LEN 50
+#define LINE_BYTES       1000000
 
 /*
  * This is the prototype of my hashable struct that maps UMIs to counts
