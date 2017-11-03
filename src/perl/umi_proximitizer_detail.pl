@@ -35,17 +35,20 @@ while (<UMI>)
 
    CHR: while ( my ($chr,$nuc_positions_arrayref) = each %$umi_data)
    {
-      # next chromosome if only one UMI
-      next CHR if (scalar @$nuc_positions_arrayref == 1);
-            
-      for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
+      # If a UMI is found just once, call its separation 0
+      if (scalar @$nuc_positions_arrayref == 1)
       {
-         my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
-	 $spacing_data->{$umi}->{$spacing}++;
+         $spacing_data->{$umi}->{0}++;
       }
-      
-   }
-   
+      else
+      {
+         for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
+         {
+            my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
+	         $spacing_data->{$umi}->{$spacing}++;
+         }
+      }
+   }   
 }
 
 

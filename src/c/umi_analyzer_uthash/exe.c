@@ -25,8 +25,8 @@
 // Don't forget to edit these to match your umi counts file
 //
 
-#define UMI_WIDTH        6
-#define POSITION_STR_LEN 50
+#define UMI_WIDTH        10
+#define POSITION_STR_LEN 25
 #define LINE_BYTES       1000000
 
 /*
@@ -154,7 +154,6 @@ int main (int argc, char *argv[])
                //
                printf("%s %s ",itoken,i_position);
                                             
-               // Open the inner loop
                int j_line_counter = 1;
                
                // Go to the line after the current i_line

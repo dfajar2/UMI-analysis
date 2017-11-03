@@ -117,19 +117,8 @@ SAMLINE: while (<SAM>)
       my $num_umis = scalar keys %$collapsed_position_data;
       my @umis = keys %$collapsed_position_data;
       
-      #
-      #
-      # Check for bad UMI lengths
-      #
-      #
-      #
-      for (@umis)
-      {
-         print "$last_position   $_\n" if ( length ($_) < 6)
-      }
-
       # print to STDOUT for the time being
-      #print "$last_position $num_umis @umis\n";
+      print "$last_position $num_umis @umis\n";
       
       # empty the structure
       %$position_data = ();
