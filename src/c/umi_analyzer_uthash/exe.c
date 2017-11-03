@@ -40,7 +40,12 @@ struct count_strings
 };
 
 /*
- * This is the prototype of the function to check if a UMI has been used
+ * Prototype of the string sorting function
+ */
+int key_sort(struct count_strings *a, struct count_strings *b);
+
+/*
+ * This is the prototype of the function to check if a UMI has been used DOES NOT WORK
  */
 //int used_already (struct count_strings*, char*);
 
@@ -236,12 +241,34 @@ int main (int argc, char *argv[])
       
    } // Outer loop while getline
    
+   // Sort the keys
+   HASH_SORT(umi_counts, string_sort);
+   
+   // Logging output
+   FILE *flog = fopen("counts_umi.txt", "w");
+   
+   // Iterate the sorted hash and print the UMI
+   struct count_strings *s;
+
+   for(s=umi_counts; s != NULL; s=s->hh.next) 
+   {
+      fprintf(flog,"%s\n", s->umi);
+   }   
+      
    fprintf(stderr,"Closing files\n");
-    
+   
+   fclose(flog); 
    fclose(fi);
    fclose(fj);
   
    return 0;
+}
+
+
+// Comparison function for strings, used by HASH_SORT
+int string_sort(struct count_strings *a, struct count_strings *b) 
+{
+    return strcmp(a->umi,b->umi);
 }
 
 

@@ -46,6 +46,11 @@ my $line_counter = 0;
 my $last_current_time = time;
 my $current_time = time;
 
+#Catalog all UMI;
+my %all_umi;
+
+#Catalog collaped UMI
+my %collapsed_umi;
    
 #
 # This groups key elements of the sam file at each position
@@ -74,7 +79,8 @@ SAMLINE: while (<SAM>)
    
    # pull out the UMI
    my ($umi) = $parts[0] =~/#([ATCGN]+)/;
- 
+   $all_umi{$umi}=1;
+   
    # put chromosome and nucleotide into one scalar
    my $position = $parts[2] . ":" . $parts[3];
       
@@ -117,6 +123,11 @@ SAMLINE: while (<SAM>)
       my $num_umis = scalar keys %$collapsed_position_data;
       my @umis = keys %$collapsed_position_data;
       
+      for (@umis)
+      {
+         $collapsed_umi{$_}=1;
+      }
+      
       # print to STDOUT for the time being
       print "$last_position $num_umis @umis\n";
       
@@ -138,9 +149,24 @@ SAMLINE: while (<SAM>)
    $last_current_time = $current_time;
 }
 
+# Log all and collapsed UMI
 
+open (ALLOUT,">all_sam_umis.txt");
+for(sort keys %all_umi)
+{
+   print ALLOUT "$_\n";
+}
 
+open (COLOUT,">collapsed_sam_umis.txt");
+for(sort keys %collapsed_umi)
+{
+   print COLOUT "$_\n";
+}
 
+close(ALLOUT);
+close(COLOUT);
+
+#=======================================================================
 
 # Collapse UMIs all within a given edit distance of each other 
 # to one UMI. 
