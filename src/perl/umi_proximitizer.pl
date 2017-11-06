@@ -9,6 +9,14 @@ use strict;
 # umi_positions.txt
 # TGCAGCGTTG   Chr01:629718   Chr06:10727258 Chr15:12754424 Chr16:7912214
 
+#
+# This counts the number of UMI (column 2) having shift size in column 1
+#
+# There is deliberate redundancy. A UMI can have a shift of 1 and 2. The number
+# of UMI having no shift at all is also computed. 
+#
+
+
 
 unless ($ARGV[0])
 {
@@ -22,10 +30,17 @@ my ($umifile) = @ARGV;
 open (UMI, "<$umifile")|| die "Couldn't open the file $!";
 
 my $spacing_data; 
+my $total_umi_count = 0;
+my $shifty_umi_count = 0;
+my $no_shifty_umi_count = 0;
 
 while (<UMI>)
 {
-   my ($umi,@positions) = split /\s+/;  
+   my ($umi,@positions) = split /\s+/; 
+   
+   $total_umi_count++;
+   
+   my $shifty_umi = 0;
    
    # For this UMI positions, key = chromosome, value = arrayref of coordinates on that chromosome 
    my $umi_data; 
@@ -40,21 +55,27 @@ while (<UMI>)
    # Go through the position data for this UMI, chromosome by chromosome
    CHR: while ( my ($chr,$nuc_positions_arrayref) = each %$umi_data)
    {
-      # If a UMI is found just once, call its separation 0
-      if (scalar @$nuc_positions_arrayref == 1)
+      # Go through the list of coords of this UMI and count the occurrences of each distance 
+      for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
       {
-         $spacing_data->{0}++;
-      }
-      else
-      {
-         # Go through the list of coords of this UMI and count the occurrences of each distance 
-         for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
+         my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
+	      $spacing_data->{$spacing}++;
+         
+         if($spacing > 0)
          {
-            my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
-	         $spacing_data->{$spacing}++;
+            $shifty_umi = 1;  
          }
-      }      
-   }   
+      }              
+   } 
+   
+   if($shifty_umi)
+   {
+      $shifty_umi_count++; 
+   }  
+   else
+   {
+      $no_shifty_umi_count++;
+   }
 }
 
 
@@ -63,10 +84,17 @@ while (<UMI>)
 my @shifts = sort {$a<=>$b} keys %$spacing_data;
 my $max_shift = $shifts[$#shifts];
 
-for my $shift( 0 .. $max_shift )
+my $checked_no_shifty_umi_count = $total_umi_count - $shifty_umi_count;
+
+print "----------------------------\n";
+print "no_shifty_umi_count: $no_shifty_umi_count\n";
+print "checked_no_shifty_umi_count: $checked_no_shifty_umi_count\n";
+print "shifty_umi_count: $shifty_umi_count\n";
+print "total_umi_count: $total_umi_count\n";
+print "----------------------------\n";
+
+for my $shift( 1 .. $max_shift )
 {
-  #my $value = $spacing_data->{$shift};
-  #($value>0) ? $value : 0;
   
   my $value=0;
   if($spacing_data->{$shift})

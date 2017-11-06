@@ -58,10 +58,15 @@ Usage: fastq\_qual\_filter infile goodfile badfile logfile min\_ok offset length
    Chr01:219245 3 GGGGCCCACT TCTGTATGTA CGCGGGTCCC
    etc.
    ```
+Some logging is done and sent to all\_sam\_umis.txt (every UMI observed in the SAM file) and collapsed\_sam\_umis.txt (non-redundant list of UMI found in the SAM file). Both are sorted.
+   
+   
    #### Find the genomic positions of every UMI
    Next step is to find all of the positions where a UMI maps in the genome. You do with with the C project in src/c/umi\_analyzer\_uthash. Keeping track of positions associated with a UMI requires a hash or map structure, which C lacks. Unfortunately using a scripting language for this task is far too slow. Fortunately there are C implementations of hashes. One of these is [uthash](http://troydhanson.github.io/uthash/userguide.html), which is implemented entirely as preprocessor macros. So put uthash.h somewhere sensible and there is no need to link to a library. The input to this program is the output of umi\_counterizer.pl. There is no flexibility here, and not much error checking. The emphasis here is solely on speed, making important assumptions about the structure of the input. This makes it possible to use fgets() instead of getline() to peel lines off a filehandle, and strtok\_r() expects space delimited input lines. You need to edit exe.c before compiling. Specify the length of the UMI and the maximum length of the position string in bytes. Also specify the maximum expected length of a line in the umi counts file. 
 
-Output is each UMI and where it maps in the genome. This file is usually called umi_positions.txt.
+Some logging is done to record all UMI found in the input file. These are to be found in analyzer\_umis.txt. The list should be the same as collapsed\_sam\_umis.txt from the umi\_counterizer.pl step previous.
+
+Output is each UMI and where it maps in the genome. This file is usually called umi\_positions.txt.
    ```
    TGTAAATTGG Chr01:76001 Chr01:76002 
    GTTGCGGGCT Chr01:76002 
@@ -128,8 +133,8 @@ Output is each UMI and where it maps in the genome. This file is usually called 
 
 #### To be documented
 
-umi_proximitizer.pl
-umi_proximitizer_detail.pl
+umi\_proximitizer.pl
+umi\_proximitizer\_detail.pl
 
 
    [ncgr]: <http://www.ncgr.org>
