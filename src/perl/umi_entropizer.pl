@@ -29,24 +29,128 @@ my $umi_line_count = `wc -l $umifile`; chomp $umi_line_count;
 print STDERR "Indexing the SAM file (long)...\n";
 my $sam_data = indexify($samfile);
 
-my $umi_line_counter = 0;
-
-while (<UMI>)
+UMI:while (<UMI>)
 {
-   $umi_line_counter++;
-   unless ($umi_line_counter%100)
-   {
-       print STDERR "Processed $umi_line_counter of $umi_line_count UMI records...\n";
-   }
-
    my ($umi,@positions) = split /\s+/;     
    my $umi_spacings = get_spacings(\@positions,$max);   
-   my $max_spacing =  $umi_spacings->[$#$umi_spacings];
    
    my $mean_entropy = get_mean_entropy(\@positions,$sam_data);
    my $umi_entropy = get_entropy($umi);
-   print "$umi\t$max_spacing\t$mean_entropy\t$umi_entropy\n";
+   
+   my $mean_mutual_info = mean_pairwise_mutual_information(\@positions,$sam_data);
+   my $umi_mutual_info = pairwise_mutual_information($umi);
+      
+   my $spacing_count = 0;
+   $spacing_count = (scalar @$umi_spacings || 0);
+   my $has_spacing = 0;
+   $has_spacing = 1 if ($spacing_count > 0);
+   
+   my @sorted_spacings = sort @$umi_spacings;
+   my $max_spacing = 0;
+   $max_spacing = ($sorted_spacings[$#sorted_spacings] || 0);
+   
+   my $has_evens = 0;
+   my $has_odds = 0;
+   my $nevens = 0;
+   my $nodds = 0;
+   my $mostly = 0;
+   
+   for my $spacing (@sorted_spacings)
+   {      
+      if (!($spacing%2))
+      {
+         $has_evens = 1; 
+         $nevens++;      
+      }
+      
+      if ($spacing == 1 || $spacing%2)
+      {
+         $has_odds = 1;
+         $nodds++;
+      }      
+   }
+   
+   if ($nodds > $nevens)
+   {
+      $mostly = 1;
+   }
+   elsif($nevens > $nodds)
+   {
+      $mostly = 2;
+   }
+   
+   print "$umi\t$spacing_count\t$has_spacing\t$max_spacing\t$mean_entropy\t$umi_entropy\t$mean_mutual_info\t$umi_mutual_info\t$has_odds\t$has_evens\t$mostly\n";
+   #print "$umi   $has_evens   $mean_mutual_info   $umi_mutual_info\n";
 }
+
+
+#
+# Calculate mean pairwise mutual information of a set of strings
+#
+sub mean_pairwise_mutual_information
+{
+   my ($positions,$sam_data) = @_;
+   my $total = 0;
+   my $n = 0; 
+      
+   for my $position(@{$positions})
+   {
+      my $read = $sam_data->{$position}->{_seq}; 
+      
+      #print "$position   $read\n";
+          
+      my $read_info = pairwise_mutual_information($sam_data->{$position}->{_seq});
+      $n++;
+      $total+=$read_info;
+   }
+   
+   #return 1;
+   
+   return $total/$n;      
+}
+
+
+#
+# Calculate the pairwise mutual information of a DNA string
+#
+sub pairwise_mutual_information
+{
+   my $read = shift;  
+   substr($read,0,1,"") if ((length($read))%2);
+   
+   my $cp_read = $read;
+   my $n_chars = length($read);
+   my $n_pairs = $n_chars/2;
+   my %base_n; my %base_p; my %pair_n; 
+   
+   my $I;
+ 
+   while (my $base = uc(substr($read,0,1,"")))
+   {
+      $base_n{$base}++;
+   }
+   
+   while(my ($base,$count) = each %base_n)
+   {
+      $base_p{$base} = $base_n{$base}/$n_chars;
+   }
+   
+   while (my $pair = uc(substr($cp_read,0,2,"")))
+   {
+      $pair_n{$pair}++;
+   }
+   
+   while(my ($pair,$count) = each %pair_n)
+   {
+      my $p_pair = $pair_n{$pair}/$n_pairs;     
+      my ($x,$y) = split //,$pair;           
+      my $i = (($p_pair) * (log2($p_pair/($base_p{$x}*$base_p{$y}))));
+      $I+=$i;
+   }
+      
+   return $I;   
+}
+
 
 #
 # Calculate mean Shannon entropy of a set of strings
@@ -146,7 +250,7 @@ sub log2
 
 
 #
-# Index in memory of a SAM file. Uses a lot of RAm but look up is fast
+# Index in memory of a SAM file. Uses a lot of RAM but look up is fast
 #
 # The index is a hash reference where the key is a position like contig:coodinate
 #
@@ -193,15 +297,20 @@ sub indexify
 
 
 #
-# Build an array of spacings found between positions for the same UMI. This is a sorted list
-# of distances between same-chromosome positions of a UMI. Set to zero if there are no adjacent 
-# occurrences of the same UMI. A position is contig:coord, like Chr06:10727258
+# Get spacing data for a UMI. A position is contig:coord, like Chr06:10727258
+#
+# We want: 
+#          Array of adjacent spacing sizes, which contains
+#          [Number of spacings]
+#          [Biggest_spacing]
+#          [How many adjacent spacings]
+#
 #
 sub get_spacings
 {
    my ($positions,$max) = @_;
    my $umi_data;
-   my $spacing_data;
+   my @spacings;
    
    # Fill the $umi_data hashref for the current UMI
    # This is a hash reference. Key is a chromosome
@@ -217,36 +326,16 @@ sub get_spacings
    # Go through the position data for this UMI, chromosome by chromosome
    CHR: while ( my ($chr,$nuc_positions_arrayref) = each %$umi_data)
    {
-      # If a UMI is found just once, call its separation 0, and go to next chromosome
-      # Next chromosome could have adjacent positions for that UMI
-      if (scalar @$nuc_positions_arrayref == 1)
+      # Go through the list of coords of this UMI and count the occurrences of each distance 
+      for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
       {
-         $spacing_data->{0} = 1;
-      }
-      else
-      {
-         # Go through the list of coords of this UMI and count the occurrences of each distance 
-         for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
-         {
-            my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
-	         $spacing_data->{$spacing} = 1 if ($spacing <= $max);
-         }
-      }      
+         my $spacing = ($nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i]);
+         push @spacings,$spacing if ($spacing <= $max);
+      }            
    } 
-   
-   my @spacings = sort {$a<=>$b} keys %{$spacing_data};  
-   
-   # This can occur if there are no close spacings but 
-   # any spacing present is greater than the max to analyze
-   if(scalar(@spacings) == 0)
-   {
-      @spacings = (0);
-   }
-     
+  
    return \@spacings;
 }
-
-
 
 
 
