@@ -79,8 +79,6 @@ while (<UMI>)
 }
 
 
-# fix thus so it prints shifts having no observed frequency
-
 my @shifts = sort {$a<=>$b} keys %$spacing_data;
 my $max_shift = $shifts[$#shifts];
 
