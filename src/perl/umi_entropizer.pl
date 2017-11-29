@@ -29,8 +29,18 @@ my $umi_line_count = `wc -l $umifile`; chomp $umi_line_count;
 print STDERR "Indexing the SAM file (long)...\n";
 my $sam_data = indexify($samfile);
 
+my $umi_lines = 1;
+my $umi_count = `wc -l $umifile`;
+chomp $umi_count;
+
 UMI:while (<UMI>)
 {
+   unless ($umi_lines%1000)
+   {
+      print STDERR "Processed $umi_lines of $umi_count UMI records\n";
+   }
+   $umi_lines++;
+
    my ($umi,@positions) = split /\s+/;     
    my $umi_spacings = get_spacings(\@positions,$max);   
    
@@ -170,7 +180,15 @@ sub get_mean_entropy
    for my $position(@{$positions})
    {
       my $read = $sam_data->{$position}->{_seq};
-      my $read_entropy = get_entropy($sam_data->{$position}->{_seq});
+
+      ###
+      if($read eq "" || !$read)
+      {
+         print STDERR "No read at position: $position\n";
+         exit 0;
+      }
+
+      my $read_entropy = get_entropy($read);
       $n++;
       $total+=$read_entropy;
    }
@@ -183,6 +201,14 @@ sub get_mean_entropy
 sub get_entropy
 {
    my $read = shift;  
+      
+   ###
+   if($read eq "" || !$read)
+   {
+      print STDERR "No read or empty read in function get_entropy()\n";
+      exit 0;
+   }
+
    my $n_chars = length($read);   
    
    my $nA = 0;
