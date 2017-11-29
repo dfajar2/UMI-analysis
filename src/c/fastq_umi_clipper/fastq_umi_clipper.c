@@ -44,7 +44,7 @@ int main (int argc, char *argv[])
 {
   if (argc < 2)
   {
-    fprintf (stderr, "\nUsage: fastq_umi_clipper fastqfilename clip_length g_length trim_length\n\n") ;
+    fprintf (stderr, "\nUsage: fastq_umi_clipper fastqfilename clip_length g_length\n\n") ;
     fprintf (stderr, "   fastqfilename: path to a fastq file\n") ;
     fprintf (stderr, "   clip_length: number of nucleotides to move from the start of the read and put in header 1\n") ;
     fprintf (stderr, "   g_length: number of nucleotides (Gs) to delete after the UMI\n") ;
