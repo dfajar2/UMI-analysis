@@ -4,9 +4,14 @@ use strict;
 
 # Feed on a list of UMIs and their positions
 # umi_positions.txt
-# TGCAGCGTTG   Chr01:629718   Chr06:10727258 Chr15:12754424 Chr16:7912214
-# These positions are sorted in ascending order
-# Group identical UMIs into clusters if they are within N nucleotides of each other.
+# TGCAGCGTTG Chr01:629718 Chr06:10727258 Chr15:12754424 Chr16:7912214
+#
+# These positions must be sorted in ascending order
+#
+# Group identical UMIs into clusters if they are within N nucleotides of each other. A UMI may have 
+# multiple positions that occur on the same chromosome or transcript that are legitimate, i.e. occur from when
+# the same transctipt chooses the same UMI. However, when positions are clustered close to one another, something
+# fishy is happening. How close is close enough to be suspicious? That's the second argument. 1 or 2 or 3.
 
 
 unless ($ARGV[1])
@@ -15,12 +20,12 @@ unless ($ARGV[1])
    exit 1;
 }
 
-# umi positions file
+# umi positions file and maximum spacing between positions that we want to consider interesting.
 my ($umifile,$max_spacing) = @ARGV;
 
 open (UMI, "<$umifile")|| die "Couldn't open the file $!";
 
-my $umi_to_position; #hash reference
+my $umi_to_position; #hash reference. ref->umi->{cluster_coords}
 
 # open each line at a time
 while (<UMI>)
@@ -34,102 +39,77 @@ while (<UMI>)
       push @{$umi_data->{$chr}},$nuc;   # $umi_data->{$chr} is an array reference
    }
    
-#    # Data look OK
-#    while ( my ($chr,$nuc_positions_arrayref) = each %$umi_data)
-#    { 
-#       print "$umi   $chr   @$nuc_positions_arrayref\n";
-#    }  
-#      print "\n";
-
-   
-   # Now the data are packed by chromosome
+   # Now the data are packed by chromosome. Each chromosome or transcript or whatever unit
+   # has an arrayref of positions.
    
    # Go through positions on the current chromosome for the current UMI  
-   while ( my ($chr,$nuc_positions_arrayref) = each %$umi_data)
+   CHR: while ( my ($chr,$nuc_positions_arrayref) = each %$umi_data)
    {
-      # If only one position on the chromosome there are no spacings
-      # and that is the position of the UMI 
+      # This will be the coord on the chromosome that will be recorded as a UMI cluster.
+      # Set it to the smallest or the only one in the array.
+      my $cluster_position = $chr . ":" . $nuc_positions_arrayref->[0];
+      
+      ###print "$umi   $chr   @$nuc_positions_arrayref\n";
+      
+      # If there is only one position on the chromosome there are no actual spacings.Spacing is an array of one. 
       if (scalar @$nuc_positions_arrayref == 1)
       {
-         my $cluster_position = $chr . ":" . $nuc_positions_arrayref->[0];
-         push@{$umi_to_position->{$umi}},$cluster_position;
+         push@{$umi_to_position->{$umi}},$cluster_position;         
+         ###print "   $cluster_position\n\n";         
+         next CHR;
       }
-      else # What are the position spacings?
-      {      
-         #print "$umi   $chr   @$nuc_positions_arrayref\n";
+      
+      # Else there is more than one position on the chromosome. Make the clusters.
+      COORD: for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++) 
+      { 
+         my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
          
-         POSITION: for ( my $i = 0 ; $i <= $#$nuc_positions_arrayref-1 ; $i++)
+         # If the spacing is <= threshold, cluster position stays the same as 
+         # already set
+         if ($spacing <= $max_spacing)
          {
-            # Get spacing between positions i and i+1 on the current chr for current UMI
-            my $spacing = $nuc_positions_arrayref->[$i+1] - $nuc_positions_arrayref->[$i];
-            
-            #print "   $i   $nuc_positions_arrayref->[$i]   $nuc_positions_arrayref->[$i+1]   $spacing\n";
-            
-            # is the spacing <= the max?
-            # Is there more to come?
-            # Keep going
-            if ($spacing <= $max_spacing && $i != $#$nuc_positions_arrayref-1)
+            # If $i+1 is the last one, then record the cluster and go to the next chromosome.
+            if($i+1 == $#$nuc_positions_arrayref)
             {
-               ;
+               push @{$umi_to_position->{$umi}},$cluster_position;         
+               ###print "   $cluster_position\n\n";  
+               next CHR;                     
+            }
+         }
+                 
+         # If the spacing is greater than the threshold, then record the current cluster
+         # position for the UMI 
+         if($spacing > $max_spacing)
+         {
+            push @{$umi_to_position->{$umi}},$cluster_position;         
+            ###print "   $cluster_position\n\n";
+            
+            # If $i+1 is the last one, then the last one counts as a cluster.
+            # Record it as a cluster position then stop here and go to the next chromosome
+            if($i+1 == $#$nuc_positions_arrayref)
+            {
+               $cluster_position = $chr . ":" . $nuc_positions_arrayref->[$i+1];
+               push @{$umi_to_position->{$umi}},$cluster_position;         
+               ###print "   $cluster_position\n\n";  
+               next CHR;                     
+            }
+            # If $i+1 is not the last one, then set the current cluster position to $i+1
+            # and go to the next iteration. This is another cluster for this UMI on the 
+            # same chromosome
+            else
+            {
+               $cluster_position = $chr . ":" . $nuc_positions_arrayref->[$i+1];
+               next COORD;
             }
             
-            # is the spacing <= the max?
-            # Is i+1 the last one?
-            # Grab i+1
-            if ($spacing <= $max_spacing && $i == $#$nuc_positions_arrayref-1)
-            {
-                #print "   ->$nuc_positions_arrayref->[$i+1]\n";
-                my $cluster_position = $chr . ":" . $nuc_positions_arrayref->[$i+1];
-                push@{$umi_to_position->{$umi}},$cluster_position;
-            }
-            
-            # Is the spacing bigger than the max?
-            # Is i+1 the last one?
-            # Grab i and i+1
-            elsif($spacing > $max_spacing && $i == $#$nuc_positions_arrayref-1)
-            {
-                #print "   ->$nuc_positions_arrayref->[$i]\n";
-                my $cluster_position = $chr . ":" . $nuc_positions_arrayref->[$i];
-                push@{$umi_to_position->{$umi}},$cluster_position;
-                #print "   ->$nuc_positions_arrayref->[$i+1]\n";
-                $cluster_position = $chr . ":" . $nuc_positions_arrayref->[$i+1];
-                push@{$umi_to_position->{$umi}},$cluster_position;
-            }
-            
-            # Is the spacing bigger than the max?
-            # Is there more to come?
-            # Grab i
-            elsif($spacing > $max_spacing)
-            {
-                #print "   ->$nuc_positions_arrayref->[$i]\n";
-                my $cluster_position = $chr . ":" . $nuc_positions_arrayref->[$i];
-                push@{$umi_to_position->{$umi}},$cluster_position;
-            }
-
-         }      
-      }      
+         }
+         
+      }
+      
    }   
+   
 }
 
-
-# # Look at what happened
-# for my $umi (sort keys %$umi_to_position)
-# {
-#   my @sorted_positions = sort @{$umi_to_position->{$umi}};  
-#   print "$umi @sorted_positions\n";
-# }
-
-# AAAAAAACCG Chr04:81039 Chr22:1756765
-# AAAAAACAGG Chr12:14544387 Chr22:11243819
-# AAAAAACCGG Chr22:1756767
-# AAAAAACGAT Chr02:13287863 Chr03:11442465 Chr04:20229245 Chr07:8920599 Chr23:12968463
-# AAAAAAGGGG Chr10:8780329 Chr12:3531402 Chr19:2679838 Chr24:3236678
-# AAAAAATGCG Chr23:11433528
-# AAAAACAACG Chr01:6050233
-# AAAAACAGGC Chr20:143854 Chr24:4391667
-# AAAAACAGGG Chr01:23369203 Chr02:5395536 Chr12:14544388 Chr13:11617036
-# AAAAACCGGG Chr20:15075734 Chr22:1756767
-# AAAAACGAGG Chr14:6681933
 
 
 # Turn the umi_to_position hash into position and UMI counts
@@ -149,3 +129,20 @@ for my $position (sort keys %position_umi_counts)
 {
   print "$position  $position_umi_counts{$position}\n";
 }
+
+# output:
+# Pp3c10_10290V3.1:827  1
+# Pp3c10_10290V3.1:846  1
+# Pp3c10_10290V3.1:87  2
+# Pp3c10_10290V3.1:88  4
+# Pp3c10_10290V3.1:89  19
+# Pp3c10_10290V3.1:90  8
+# Pp3c10_10290V3.1:91  1
+# Pp3c10_10290V3.1:939  1
+# Pp3c10_10290V3.1:969  1
+# Pp3c10_10490V3.3:2223  1
+# Pp3c10_10710V3.2:2  1
+# Pp3c10_10710V3.2:4  1
+# Pp3c10_10710V3.2:8  1
+# Pp3c10_11000V3.3:435  1
+#etc.
